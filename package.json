@@ -6,12 +6,12 @@
   "author": {
     "name": "Milo van der Linden",
     "email": "milo.vd.linden@eindhoven.nl",
-    "url": "http://www.eindhoven.nl"
+    "url": "http://eindhoven.raadsinformatie.nl"
   },
   "private": true,
   "repository": {
     "type": "git",
-    "url": "http://github.com/codeforeindhoven/raadsinformatie.git"
+    "url": "https://github.com/codeforeindhoven/raadsinformatie.git"
   },
   "dependencies": {
     "cheerio": "^0.22.0",
