@@ -14,10 +14,23 @@ Open index.js and change the variables.
 ```javascript
 var startyear = 2010;
 var endyear = 2010;
-var city = 'amsterdam'; //'eindhoven';
-//amsterdam, apeldoorn, dordrecht, maastricht, groningen, middelburg
-//deventer, ommen, hulst, almere, huizen
+var city = 'eindhoven';
 ```
+Possible values for the city variable:
+- almere
+- amsterdam
+- apeldoorn
+- denhaag
+- deventer
+- dordrecht 
+- eindhoven (tested)
+- groningen
+- hulst
+- huizen
+- maastricht
+- middelburg
+- ommen
+- rotterdam
 
 ## Run
 ```
