@@ -9,9 +9,9 @@ var cheerio = require("cheerio");
 var md5 = require("nodejs-md5");
 var connectstr = 'mongodb://localhost:27017/raadsinformatie';
 var db;
-var startyear = 1998;
-var endyear = 1998;
-var city = 'eindhoven';
+var startyear = 2010;
+var endyear = 2010;
+var city = 'amsterdam'; //'eindhoven';
 //amsterdam, apeldoorn, dordrecht, maastricht, groningen, middelburg
 //deventer, ommen, hulst, almere, huizen
 /**
@@ -29,7 +29,7 @@ var download = function(document, callback) {
       throw err;
     } else {
       temp.file_name = md5.toString() + "." + temp.file_type;
-      var dest = './data/'+ city + '/' + moment(temp.timestamp).format('YYYY/MM') + "/";
+      var dest = './data/' + city + '/' + moment(temp.timestamp).format('YYYY/MM') + "/";
       temp.location = dest + temp.file_name;
       fs.mkdir(dest, 0777, true, function(err) {
         if (err) {
@@ -189,7 +189,7 @@ function get_downloads(documents, callback) {
     //console.log(meetings[mIdx]);
     download(documents[mIdx], function(document_download) {
       downloads.push(document_download);
-      console.log( documents[mIdx].meeting_id + " downloaded");
+      console.log(documents[mIdx].meeting_id + " downloaded");
       if (mIdx < documents.length - 1) {
         loop_documents(mIdx + 1);
       } else {
@@ -224,19 +224,24 @@ function get_documents(meetings, callback) {
 MongoClient.connect(connectstr, function(err, connection) {
   db = connection;
   get_meetings(function(meetings) {
-    get_documents(meetings, function(documents) {
-      get_downloads(documents, function(downloads){
-        var meeting_collection = db.collection('meetings');
-        var document_collection = db.collection('documents');
-        var download_collection = db.collection('downloads');
-        meeting_collection.insertMany(meetings, function(err, result) {
-          document_collection.insertMany(documents, function(err, result) {
-            download_collection.insertMany(downloads, function(err, result){
+    if (meetings.length > 0) {
+      get_documents(meetings, function(documents) {
+        get_downloads(documents, function(downloads) {
+          var meeting_collection = db.collection('meetings');
+          var document_collection = db.collection('documents');
+          var download_collection = db.collection('downloads');
+          meeting_collection.insertMany(meetings, function(err, result) {
+            document_collection.insertMany(documents, function(err, result) {
+              download_collection.insertMany(downloads, function(err, result) {
                 db.close();
+              });
             });
           });
         });
       });
-    });
+    } else {
+      //nothing to do
+      db.close();
+    }
   });
 });
