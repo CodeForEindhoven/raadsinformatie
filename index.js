@@ -1,3 +1,4 @@
+var winston = require('winston');
 var MongoClient = require('mongodb').MongoClient;
 var moment = require("moment-timezone");
 var assert = require('assert');
@@ -7,13 +8,30 @@ var path = require("path");
 var url = require("url");
 var cheerio = require("cheerio");
 var md5 = require("nodejs-md5");
-var connectstr = 'mongodb://localhost:27017/raadsinformatie';
 var db;
-var startyear = 2010;
-var endyear = 2010;
-var city = 'amsterdam'; //'eindhoven';
-//amsterdam, apeldoorn, dordrecht, maastricht, groningen, middelburg
-//deventer, ommen, hulst, almere, huizen
+
+var connectstr = 'mongodb://localhost:27017/raadsinformatie';
+var startyear = 2013;
+var endyear = 2017;
+var city = 'eindhoven';
+
+/*
+    almere
+    amsterdam
+    apeldoorn
+    denhaag
+    deventer
+    dordrecht
+    eindhoven
+    groningen
+    hulst
+    huizen
+    maastricht
+    middelburg
+    ommen
+    rotterdam
+*/
+
 /**
  * download function
  */
@@ -24,16 +42,16 @@ var download = function(document, callback) {
     "timestamp": document.timestamp,
     "file_type": document.file_type
   };
-  md5.string.quiet(temp.url, function(err, md5) {
-    if (err) {
-      throw err;
+  md5.string.quiet(temp.url, function(e, md5) {
+    if (e) {
+      throw e;
     } else {
       temp.file_name = md5.toString() + "." + temp.file_type;
       var dest = './data/' + city + '/' + moment(temp.timestamp).format('YYYY/MM') + "/";
       temp.location = dest + temp.file_name;
-      fs.mkdir(dest, 0777, true, function(err) {
-        if (err) {
-          throw err;
+      fs.mkdir(dest, 0777, true, function(e) {
+        if (e) {
+          throw e;
         }
         var file = fs.createWriteStream(temp.location);
         var request = https.get(temp.url, function(response) {
@@ -144,8 +162,8 @@ var read_year = function(year, callback) {
       try {
         result = JSON.parse(response_text);
         callback(null, result);
-      } catch (err) {
-        callback(err, null);
+      } catch (e) {
+        callback(e, null);
       }
     });
   });
@@ -159,11 +177,11 @@ function get_meetings(callback) {
   var meetings = [];
 
   function loop_year(yIdx) {
-    read_year(yIdx, function(err, res) {
-      if (err) {
-        console.log(err);
+    read_year(yIdx, function(e, res) {
+      if (e) {
+        throw (e);
       } else {
-        console.log("Year " + yIdx + " (" + res.meetings.length + " meetings)");
+        winston.log('info', "Year " + yIdx + " (" + res.meetings.length + " meetings)");
         for (var i = 0; i < res.meetings.length; i++) {
           res.meetings[i].timestamp = moment.tz(
             moment(res.meetings[i].date + " " + res.meetings[i].time, "DD-MM-YYYY HH:mm"),
@@ -186,10 +204,9 @@ function get_downloads(documents, callback) {
   var downloads = [];
 
   function loop_documents(mIdx) {
-    //console.log(meetings[mIdx]);
     download(documents[mIdx], function(document_download) {
       downloads.push(document_download);
-      console.log(documents[mIdx].meeting_id + " downloaded");
+      winston.log('info', documents[mIdx].meeting_id + " downloaded");
       if (mIdx < documents.length - 1) {
         loop_documents(mIdx + 1);
       } else {
@@ -204,10 +221,9 @@ function get_documents(meetings, callback) {
   var documents = [];
 
   function loop_meetings(mIdx) {
-    //console.log(meetings[mIdx]);
     scrape(meetings[mIdx], function(meeting_docs) {
       documents = documents.concat(meeting_docs);
-      console.log("meeting " + meetings[mIdx].id + " (" + meeting_docs.length + " documents)");
+      winston.log('info', "meeting " + meetings[mIdx].id + " (" + meeting_docs.length + " documents)");
       if (mIdx < meetings.length - 1) {
         loop_meetings(mIdx + 1);
       } else {
@@ -221,27 +237,37 @@ function get_documents(meetings, callback) {
 /**
  * __Main__
  */
-MongoClient.connect(connectstr, function(err, connection) {
-  db = connection;
-  get_meetings(function(meetings) {
-    if (meetings.length > 0) {
-      get_documents(meetings, function(documents) {
-        get_downloads(documents, function(downloads) {
-          var meeting_collection = db.collection('meetings');
-          var document_collection = db.collection('documents');
-          var download_collection = db.collection('downloads');
-          meeting_collection.insertMany(meetings, function(err, result) {
-            document_collection.insertMany(documents, function(err, result) {
-              download_collection.insertMany(downloads, function(err, result) {
-                db.close();
+fs.mkdir('logs', 0777, true, function(e) {
+  winston.level = process.env.LOG_LEVEL || 'debug';
+  var log = 'logs/' + moment().format('YYYYMMDD-hhmm') + '-' + winston.level + '.log';
+  winston.handleExceptions(new winston.transports.File({
+    filename: 'logs/' + moment().format('YYYYMMDD-hhmm') + '-exceptions.log'
+  }));
+  winston.add(winston.transports.File, {
+    filename: log
+  });
+  MongoClient.connect(connectstr, function(err, connection) {
+    db = connection;
+    get_meetings(function(meetings) {
+      if (meetings.length > 0) {
+        get_documents(meetings, function(documents) {
+          get_downloads(documents, function(downloads) {
+            var meeting_collection = db.collection('meetings');
+            var document_collection = db.collection('documents');
+            var download_collection = db.collection('downloads');
+            meeting_collection.insertMany(meetings, function(err, result) {
+              document_collection.insertMany(documents, function(err, result) {
+                download_collection.insertMany(downloads, function(err, result) {
+                  db.close();
+                });
               });
             });
           });
         });
-      });
-    } else {
-      //nothing to do
-      db.close();
-    }
+      } else {
+        //nothing to do
+        db.close();
+      }
+    });
   });
 });
